@@ -1,0 +1,5 @@
+*.pyc
+*.swp
+*.__init__
+*.pdf
+*__pycach__*
