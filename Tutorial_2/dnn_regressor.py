@@ -69,6 +69,7 @@ W = [1]*len(input_vars[0])
 
 
 
+
 ############################
 #### CREATING DNN MODEL ####
 ############################
@@ -82,7 +83,7 @@ def baseline_model():
     model.add(Dense(15, activation='relu'))
     model.add(Dense(1, kernel_initializer='normal'))
     # Compile model
-    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.compile(loss='mean_squared_error', optimizer='adam', weighted_metrics=['mean_squared_error'])
     return model
 
 ### Splitting into Training and Testing Sets
@@ -90,8 +91,27 @@ X_train, X_test, Y_train, Y_test, W_train, W_test = train_test_split(X, Y, W, te
 
 
 ### Defining our Keras Model
-estimator = KerasRegressor(build_fn=baseline_model, epochs=200, batch_size=128, verbose=1)
-estimator.fit(np.array(X_train), np.array(Y_train))
+estimator = KerasRegressor(build_fn=baseline_model, epochs=200, batch_size=128, validation_split=0.35, verbose=1, shuffle=True)
+history =  estimator.fit(np.array(X_train),np.array(Y_train), sample_weight=np.array(W_train), callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_loss',patience=100,verbose=1)])
+
+
+##############################
+#### PLOTTING PERFORMANCE ####
+##############################
+
+pdf_pages = PdfPages("./dnn_history_tutorial1.pdf")
+
+fig, ax = plt.subplots(1)
+fig.suptitle("Model Loss")
+ax.plot(history.history['loss'])
+ax.plot(history.history['val_loss'])
+ax.set_ylabel('Loss')
+ax.set_xlabel('Epoch')
+ax.legend(['train', 'test'], loc='upper left')
+fig.set_size_inches(6,6)
+
+pdf_pages.savefig(fig)
+
 
 
 
@@ -105,15 +125,46 @@ resolution = [(Y_test[i] - predictions[i])/Y_test[i] for i in range(0,len(Y_test
 res_binned, res_bins = np.histogram(resolution, 100, (-2,2))
 
 pdf_pages = PdfPages("./dnn_history_tutorial2.pdf")
-fig, ax = plt.subplots(1)
-fig.suptitle("Model Resolution")
-ax.errorbar([res_bins[i]+(res_bins[i+1]-res_bins[i])/2 for i in range(0, len(res_bins)-1)],
+fig2, ax2 = plt.subplots(1)
+fig2.suptitle("Model Resolution")
+ax2.errorbar([res_bins[i]+(res_bins[i+1]-res_bins[i])/2 for i in range(0, len(res_bins)-1)],
                     res_binned, xerr=[(res_bins[i+1] - res_bins[i])/2 for i in range(0, len(res_bins)-1)],
                     linestyle="", marker=".", markersize=3, elinewidth = .5)
-ax.set_ylabel('$N_{events}$')
-ax.set_xlabel("$(p_T^{GEN} - p_T^{NN})/(p_T^{GEN})$")
-fig.set_size_inches(6,6)
+ax2.set_ylabel('$N_{events}$')
+ax2.set_xlabel("$(p_T^{GEN} - p_T^{NN})/(p_T^{GEN})$")
+fig2.set_size_inches(6,6)
 
 
-pdf_pages.savefig(fig)
+pdf_pages.savefig(fig2)
+
+
+
+##########################
+#### PLOTTING OUTPUTS ####
+##########################
+
+
+Y_test_binned, Y_bins = np.histogram(Y_test, 500, (0,1000))
+Y_pred_binned, Y_bins = np.histogram(predictions, 500, (0,1000))
+
+fig3, ax3 = plt.subplots(1)
+fig3.suptitle("Model Predictions")
+ax3.errorbar([Y_bins[i]+(Y_bins[i+1]-Y_bins[i])/2 for i in range(0, len(Y_bins)-1)],
+                    Y_test_binned, xerr=[(Y_bins[i+1] - Y_bins[i])/2 for i in range(0, len(Y_bins)-1)],
+                    linestyle="", marker=".", markersize=3, elinewidth = .5, label="Test")
+ax3.errorbar([Y_bins[i]+(Y_bins[i+1]-Y_bins[i])/2 for i in range(0, len(Y_bins)-1)],
+                    Y_pred_binned, xerr=[(Y_bins[i+1] - Y_bins[i])/2 for i in range(0, len(Y_bins)-1)],
+                    linestyle="", marker=".", markersize=3, elinewidth = .5, label="Prediction")
+
+ax3.legend()
+
+ax3.set_ylabel('$N_{events}$')
+ax3.set_xlabel("$p_T$")
+ax3.set_yscale('log')
+fig3.set_size_inches(6,6)
+
+
+pdf_pages.savefig(fig3)
+
+
 pdf_pages.close()
