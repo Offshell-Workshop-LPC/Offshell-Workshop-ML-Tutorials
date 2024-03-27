@@ -41,7 +41,7 @@ import matplotlib.pyplot as plt
 
 ### Initializing Input File Information
 
-INPUT_FILE_NAME = "../../EMTF_ntuple_slimmed_v2.root"
+INPUT_FILE_NAME = "/eos/user/j/jrotter/OffshellWorkshop_RootFiles/EMTF_ntuple_slimmed.root"
 
 ### Initializing Input Variable Information
 
