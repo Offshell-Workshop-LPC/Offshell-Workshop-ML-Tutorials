@@ -48,7 +48,7 @@ We also need to initialize some variables we want to use in our script.
 ```
 ### Initializing Input File Information
 
-INPUT_FILE_NAME = "../../EMTF_ntuple_slimmed_v2.root"
+INPUT_FILE_NAME = "/eos/user/j/jrotter/OffshellWorkshop_RootFiles/EMTF_ntuple_slimmed.root"
 
 ### Initializing Input Variable Information
 
@@ -139,4 +139,13 @@ pdf_pages.savefig(fig)
 pdf_pages.close()
 ```
 
+## Exercises
 
+*What does the loss curves look like for the training and validation sets?*
+*Improve the strucutre of the NN to remove overtraining*
+
+
+*Based on the Prediction vs True value distributions, which area is the NN regressing poorly?*
+*Change the event weights to improve this*
+
+*Change the target variable to be `np.log(f["tree/GEN_pt"].array())` and see if things change!*
