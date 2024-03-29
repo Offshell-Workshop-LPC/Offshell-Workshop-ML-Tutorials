@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 
 ### Initializing Input File Information
 
-INPUT_FILE_NAME = "../../EMTF_ntuple_slimmed_v2.root"
+INPUT_FILE_NAME = "../rootfiles/EMTF_ntuple_slimmed.root"
 
 ### Initializing Input Variable Information
 
@@ -61,58 +61,76 @@ W = [1]*len(input_vars[0])
 
 
 ############################
-#### CREATING DNN MODEL ####
+#### CREATING BDT MODEL ####
 ############################
-
-### Defining Baseline Model
-
-def baseline_model():
-    model = Sequential() # 20, 60, 30, 15, 1
-    model.add(Dense(60, input_dim=len(INPUT_VAR_NAMES), activation='relu'))
-    model.add(Dense(30, activation='relu'))
-    model.add(Dense(15, activation='relu'))
-    model.add(Dense(1, kernel_initializer='normal'))
-    # Compile model
-    model.compile(loss='mean_squared_error', optimizer='adam')
-    return model
 
 ### Splitting into Training and Testing Sets
 X_train, X_test, Y_train, Y_test, W_train, W_test = train_test_split(X, Y, W, test_size=.5, random_state=123)
 
+X_train_split, X_val, Y_train_split, Y_val, W_train_split, W_val = train_test_split(X_train, Y_train, W_train, test_size=.5, random_state=321)
 
-### Defining our Keras Model
 
-dtrain = xgb.DMatrix(data = X_train, label = Y_train, weight = W_train)
-dtest = xgb.DMatrix(data = X_test, label = Y_test, weight = W_test)
+### Defining our XGBoost Model
 
 xg_reg = xgb.XGBRegressor(objective = 'reg:squarederror', 
-                        learning_rate = .1, 
-                        max_depth = 5, 
+                        learning_rate = .15, 
+                        max_depth = 3, 
                         n_estimators = 400,
-                        max_bins = 1000,
                         nthread = 30)
 
-xg_reg.fit(X_train, Y_train, sample_weight = W_train)
+xg_reg.fit(X_train_split, Y_train_split, eval_metric=["rmse"], sample_weight = W_train_split, eval_set=[(X_train_split, Y_train_split), (X_val, Y_val)])
+
+results = xg_reg.evals_result()
+
+
+
+##############################
+#### PLOTTING PERFORMANCE ####
+##############################
+
+pdf_pages = PdfPages("./bdt_history_tutorial3.pdf")
+
+fig, ax = plt.subplots(1)
+fig.suptitle("Model Loss")
+ax.plot(results['validation_0']['rmse'])
+ax.plot(results['validation_1']['rmse'])
+ax.set_ylabel('RMSE')
+ax.set_xlabel('Epoch')
+ax.legend(['train','test'], loc='upper left')
+fig.set_size_inches(6,6)
+
+pdf_pages.savefig(fig)
+
 
 #############################
 #### PLOTTING RESOLUTION ####
 #############################
 
 predictions = xg_reg.predict(X_test)
+predictions_train = xg_reg.predict(X_train_split)
 
 resolution = [(Y_test[i] - predictions[i])/Y_test[i] for i in range(0,len(Y_test))]
-res_binned, res_bins = np.histogram(resolution, 100, (-2,2))
+resolution_train = [(Y_train_split[i] - predictions_train[i])/Y_train_split[i] for i in range(0,len(Y_train_split))]
 
-pdf_pages = PdfPages("./dnn_history_tutorial3.pdf")
-fig, ax = plt.subplots(1)
-fig.suptitle("Model Resolution")
-ax.errorbar([res_bins[i]+(res_bins[i+1]-res_bins[i])/2 for i in range(0, len(res_bins)-1)],
+res_binned, res_bins = np.histogram(resolution, 100, (-2,2), density=True)
+res_binned_train, res_bins = np.histogram(resolution_train, 100, (-2,2),density=True)
+
+fig2, ax2 = plt.subplots(1)
+fig2.suptitle("Model Resolution")
+ax2.errorbar([res_bins[i]+(res_bins[i+1]-res_bins[i])/2 for i in range(0, len(res_bins)-1)],
                     res_binned, xerr=[(res_bins[i+1] - res_bins[i])/2 for i in range(0, len(res_bins)-1)],
-                    linestyle="", marker=".", markersize=3, elinewidth = .5)
-ax.set_ylabel('$N_{events}$')
-ax.set_xlabel("$(p_T^{GEN} - p_T^{NN})/(p_T^{GEN})$")
-fig.set_size_inches(6,6)
+                    linestyle="", marker=".", markersize=3, elinewidth = .5,label="Test")
+
+ax2.errorbar([res_bins[i]+(res_bins[i+1]-res_bins[i])/2 for i in range(0, len(res_bins)-1)],
+                    res_binned_train, xerr=[(res_bins[i+1] - res_bins[i])/2 for i in range(0, len(res_bins)-1)],
+                    linestyle="", marker=".", markersize=3, elinewidth = .5,label="Train")
+
+ax2.set_ylabel('$N_{events}$')
+ax2.set_xlabel("$(p_T^{GEN} - p_T^{BDT})/(p_T^{GEN})$")
+ax2.legend()
+fig2.set_size_inches(6,6)
 
 
-pdf_pages.savefig(fig)
+pdf_pages.savefig(fig2)
+
 pdf_pages.close()
